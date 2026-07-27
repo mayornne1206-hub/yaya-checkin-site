@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YAYA Check-In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Playfair+Display:ital,wght@0,600;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#14111c;
+    --surface:#1f1a2e;
+    --surface-2:#2a2340;
+    --purple:#4a2472;
+    --lilac:#b695c0;
+    --teal:#2c8c8c;
+    --teal-bright:#3fb8b8;
+    --gold:#d4af37;
+    --text:#f5f2fa;
+    --muted:#a99bc0;
+    --danger:#d1685f;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{
+    font-family:'Bebas Neue',sans-serif;
+    letter-spacing:0.04em;
+    font-weight:400;
+  }
+  .tagline{font-family:'Playfair Display',serif;font-style:italic;color:var(--lilac);}
+  #app{max-width:960px;margin:0 auto;padding:0 16px 80px;}
+  header.top{
+    padding:28px 16px 18px;
+    text-align:center;
+    background:linear-gradient(180deg, var(--purple) 0%, var(--bg) 100%);
+    border-radius:0 0 24px 24px;
+    margin-bottom:18px;
+  }
+  header.top h1{font-size:2.4rem;margin:0;color:var(--gold);}
+  header.top p{margin:4px 0 0;color:var(--lilac);font-size:0.95rem;}
+
+  nav.tabs{
+    display:flex;
+    gap:8px;
+    background:var(--surface);
+    border-radius:100px;
+    padding:6px;
+    margin-bottom:20px;
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    flex:1;
+    white-space:nowrap;
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    padding:10px 14px;
+    border-radius:100px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:0.85rem;
+    cursor:pointer;
+    transition:background .2s, color .2s;
+  }
+  nav.tabs button.active{background:var(--teal);color:#fff;}
+  nav.tabs button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--gold); outline-offset:2px;
+  }
+
+  .panel{display:none;}
+  .panel.active{display:block; animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+  @media (prefers-reduced-motion: reduce){ .panel.active{animation:none;} }
+
+  .card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:16px;
+    border:1px solid rgba(255,255,255,0.05);
+  }
+  .stats-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:16px;}
+  .stat{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:16px;
+    text-align:center;
+    border-top:3px solid var(--teal);
+  }
+  .stat .num{font-family:'Bebas Neue'; font-size:2.1rem; color:var(--gold);}
+  .stat .lbl{font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;}
+
+  /* Scanner */
+  #scanWrap{
+    position:relative; width:100%; max-width:420px; margin:0 auto;
+    border-radius:var(--radius); overflow:hidden; background:#000;
+    aspect-ratio:1/1;
+  }
+  #scanWrap video{width:100%; height:100%; object-fit:cover;}
+  #scanFrame{
+    position:absolute; inset:12%; border:3px solid var(--teal-bright);
+    border-radius:16px; box-shadow:0 0 0 2000px rgba(0,0,0,0.35);
+    pointer-events:none;
+  }
+  #scanStatus{text-align:center; margin-top:12px; color:var(--muted); font-size:0.9rem;}
+  #scanControls{display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;}
+
+  .btn{
+    background:var(--teal); color:#fff; border:none; padding:12px 20px;
+    border-radius:100px; font-weight:600; font-size:0.9rem; cursor:pointer;
+    transition:transform .15s, background .2s;
+  }
+  .btn:hover{background:var(--teal-bright);}
+  .btn:active{transform:scale(0.97);}
+  .btn.secondary{background:var(--surface-2); color:var(--text); border:1px solid rgba(255,255,255,0.12);}
+  .btn.gold{background:var(--gold); color:#14111c;}
+  .btn.danger{background:transparent; color:var(--danger); border:1px solid var(--danger);}
+  .btn:disabled{opacity:0.5; cursor:not-allowed;}
+
+  input, select{
+    width:100%; padding:11px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.12);
+    background:var(--surface-2); color:var(--text); font-family:'Inter'; font-size:0.95rem;
+  }
+  label{display:block; font-size:0.8rem; color:var(--muted); margin-bottom:6px; margin-top:12px;}
+  form .btn{margin-top:16px;}
+
+  /* Welcome overlay */
+  #welcomeOverlay{
+    position:fixed; inset:0; background:rgba(20,17,28,0.96); z-index:50;
+    display:none; align-items:center; justify-content:center; flex-direction:column;
+    text-align:center; padding:24px;
+  }
+  #welcomeOverlay.show{display:flex;}
+  .welcome-ring{
+    width:140px; height:140px; border-radius:50%;
+    border:4px solid var(--gold); display:flex; align-items:center; justify-content:center;
+    margin-bottom:20px; font-family:'Bebas Neue'; font-size:2.2rem; color:var(--gold);
+    animation:pop .35s ease;
+  }
+  @keyframes pop{from{transform:scale(0.6); opacity:0;} to{transform:scale(1); opacity:1;}}
+  #welcomeOverlay h2{font-size:2.6rem; margin:0 0 6px; color:var(--text);}
+  #welcomeOverlay .streak{color:var(--lilac); font-family:'Playfair Display'; font-style:italic; font-size:1.1rem;}
+  #welcomeOverlay .sub{color:var(--muted); margin-top:6px; font-size:0.9rem;}
+
+  table{width:100%; border-collapse:collapse; font-size:0.9rem;}
+  th{text-align:left; color:var(--muted); font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; padding:8px 6px; border-bottom:1px solid rgba(255,255,255,0.08);}
+  td{padding:9px 6px; border-bottom:1px solid rgba(255,255,255,0.05);}
+  .pill{display:inline-block; padding:2px 10px; border-radius:100px; font-size:0.72rem; background:var(--surface-2); color:var(--lilac);}
+  .row-actions button{background:none; border:none; color:var(--danger); cursor:pointer; font-size:0.8rem;}
+  .empty{color:var(--muted); text-align:center; padding:24px; font-size:0.9rem;}
+
+  .qr-cards{display:none;}
+  @media print{
+    body *{visibility:hidden;}
+    .qr-cards, .qr-cards *{visibility:visible;}
+    .qr-cards{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; position:absolute; top:0; left:0; width:100%; padding:20px;}
+    .qr-card{border:1px dashed #999; border-radius:8px; padding:12px; text-align:center; break-inside:avoid;}
+    .qr-card .name{font-family:'Bebas Neue'; font-size:1.1rem; color:#000; margin-top:8px;}
+    .qr-card .code{font-family:monospace; font-size:0.75rem; color:#333;}
+  }
+
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:60;
+    display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-backdrop.show{display:flex;}
+  .modal{background:var(--surface); border-radius:var(--radius); padding:22px; max-width:380px; width:100%;}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="top">
+    <h1>YAYA CHECK-IN</h1>
+    <p class="tagline">Youth &amp; Young Adults · Livingword Darlington</p>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="checkin" class="active">Check-In</button>
+    <button data-tab="dashboard">Dashboard</button>
+    <button data-tab="roster">Roster</button>
+    <button data-tab="export">Export</button>
+  </nav>
+
+  <!-- CHECK-IN -->
+  <section class="panel active" id="panel-checkin">
+    <div class="card" style="text-align:center;">
+      <div id="scanWrap">
+        <video id="video" playsinline muted></video>
+        <div id="scanFrame"></div>
+      </div>
+      <div id="scanStatus">Tap "Start scanning" and point the camera at a QR card.</div>
+      <div id="scanControls">
+        <button class="btn" id="startBtn">Start scanning</button>
+        <button class="btn secondary" id="stopBtn" style="display:none;">Stop</button>
+        <button class="btn secondary" id="manualBtn">Enter code manually</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="panel" id="panel-dashboard">
+    <div class="stats-row" id="statsRow"></div>
+    <div class="card">
+      <h3 style="margin-top:0;">Attendance — last sessions</h3>
+      <canvas id="trendChart" height="140"></canvas>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">Missing 3+ recent sessions</h3>
+      <div id="absenteeList"></div>
+    </div>
+    <div style="text-align:right;">
+      <button class="btn secondary" id="refreshDashBtn">Refresh</button>
+    </div>
+  </section>
+
+  <!-- ROSTER -->
+  <section class="panel" id="panel-roster">
+    <div class="card">
+      <h3 style="margin-top:0;">Add a youth</h3>
+      <div id="addForm">
+        <label for="addName">Name</label>
+        <input id="addName" placeholder="Full name">
+        <label for="addGroup">Group / age band</label>
+        <input id="addGroup" placeholder="e.g. Teens, Young Adults">
+        <div id="addNameError" style="display:none; color:var(--danger); font-size:0.82rem; margin-top:6px;">Please enter a name.</div>
+        <button class="btn gold" type="button" id="addSubmitBtn">Add &amp; generate QR code</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <h3 style="margin:0;">Roster</h3>
+        <div style="display:flex; gap:8px;">
+          <input id="rosterSearch" placeholder="Search name…" style="width:180px;">
+          <button class="btn secondary" id="importSeedBtn">Import Youth Register</button>
+          <button class="btn secondary" id="printCardsBtn">Print ID cards</button>
+        </div>
+      </div>
+      <div id="rosterTableWrap" style="margin-top:12px; overflow-x:auto;"></div>
+    </div>
+  </section>
+
+  <!-- EXPORT -->
+  <section class="panel" id="panel-export">
+    <div class="card">
+      <h3 style="margin-top:0;">Export to your Google Sheet</h3>
+      <p style="color:var(--muted); font-size:0.9rem;">Downloads a CSV in the same columns as your YAYA attendance sheet. Import it directly, or drop it into the folder your Zapier automation watches.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="exportLogBtn">Download attendance log (CSV)</button>
+        <button class="btn secondary" id="exportRosterBtn">Download roster (CSV)</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">Data note</h3>
+      <p style="color:var(--muted); font-size:0.9rem; margin:0;">Everyone using this app link shares the same roster and log — useful if more than one leader checks kids in at the same time. There's no undo on deleting a roster entry, so double-check before removing anyone.</p>
+    </div>
+  </section>
+</div>
+
+<div id="welcomeOverlay">
+  <div class="welcome-ring" id="welcomeInitial"></div>
+  <h2 id="welcomeName"></h2>
+  <div class="streak" id="welcomeStreak"></div>
+  <div class="sub" id="welcomeSub"></div>
+</div>
+
+<div class="modal-backdrop" id="manualModal">
+  <div class="modal">
+    <h3 style="margin-top:0;">Enter code manually</h3>
+    <label for="manualCode">Code</label>
+    <input id="manualCode" placeholder="e.g. YAYA-3F9K2">
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button class="btn" id="manualSubmit">Check in</button>
+      <button class="btn secondary" id="manualCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="unknownModal">
+  <div class="modal">
+    <h3 style="margin-top:0;">New face 👋</h3>
+    <p style="color:var(--muted); font-size:0.88rem;">This code isn't in the roster yet. Add them now and check them in immediately.</p>
+    <label for="unknownName">Name</label>
+    <input id="unknownName" placeholder="Full name">
+    <label for="unknownGroup">Group / age band</label>
+    <input id="unknownGroup" placeholder="e.g. Teens, Young Adults">
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button class="btn gold" id="unknownSubmit">Add &amp; welcome them</button>
+      <button class="btn secondary" id="unknownCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="qr-cards" id="printArea"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  window.addEventListener("error", (e)=>{
+    console.error("App error:", e.message);
+    let t = document.getElementById("errToast");
+    if(!t){
+      t = document.createElement("div");
+      t.id="errToast";
+      t.style.cssText="position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#d1685f;color:#fff;padding:8px 16px;border-radius:10px;font-size:0.78rem;z-index:90;max-width:90%;text-align:center;";
+      document.body.appendChild(t);
+    }
+    t.textContent = "Something went wrong: "+e.message;
+    t.style.display="block";
+  });
+
+  // ---------- Storage helpers ----------
+  async function loadJSON(key, fallback){
+    try{
+      const res = await fetch("/.netlify/functions/data?resource="+key);
+      if(!res.ok) return fallback;
+      const data = await res.json();
+      return data ?? fallback;
+    }catch(e){ return fallback; }
+  }
+  let pendingSaves = {}; // key -> data, for saves that failed and need retry
+
+  async function saveJSON(key, value){
+    try{
+      const res = await fetch("/.netlify/functions/data?resource="+key, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(value)
+      });
+      if(!res.ok) throw new Error("Save failed with status "+res.status);
+      delete pendingSaves[key];
+      hideSyncBannerIfClear();
+      return true;
+    }catch(e){
+      console.error("Storage save failed for", key, e);
+      pendingSaves[key] = value;
+      showSyncBanner();
+      return false;
+    }
+  }
+
+  function showSyncBanner(){
+    let b = document.getElementById("syncBanner");
+    if(!b){
+      b = document.createElement("div");
+      b.id = "syncBanner";
+      b.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#d1685f;color:#fff;padding:10px 16px;border-radius:100px;font-size:0.82rem;font-weight:600;z-index:85;display:flex;gap:10px;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,0.35);";
+      b.innerHTML = '<span>Some changes didn\'t save — connection hiccup.</span><button id="retrySyncBtn" style="background:#fff;color:#d1685f;border:none;border-radius:100px;padding:4px 12px;font-weight:700;cursor:pointer;">Retry</button>';
+      document.body.appendChild(b);
+      document.getElementById("retrySyncBtn").addEventListener("click", retryPendingSaves);
+    }
+    b.style.display="flex";
+  }
+  function hideSyncBannerIfClear(){
+    if(Object.keys(pendingSaves).length===0){
+      const b = document.getElementById("syncBanner");
+      if(b) b.style.display="none";
+    }
+  }
+  async function retryPendingSaves(){
+    const keys = Object.keys(pendingSaves);
+    for(const key of keys){
+      await saveJSON(key, pendingSaves[key]);
+    }
+    if(Object.keys(pendingSaves).length===0){
+      showToast("Synced");
+    }
+  }
+
+  let roster = [];   // {code, name, group, joined}
+  let log = [];       // {code, name, date, time}
+
+  function todayISO(){
+    const d = new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0');
+  }
+  function genCode(){
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let c;
+    do{
+      c = "YAYA-" + Array.from({length:5},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+    } while(roster.some(r=>r.code===c));
+    return c;
+  }
+
+  // ---------- Tabs ----------
+  document.querySelectorAll("nav.tabs button").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("panel-"+btn.dataset.tab).classList.add("active");
+      if(btn.dataset.tab==="dashboard") renderDashboard();
+      if(btn.dataset.tab==="roster") renderRoster();
+      if(btn.dataset.tab!=="checkin") stopScanning();
+    });
+  });
+
+  // ---------- Scanner ----------
+  let stream=null, scanning=false, lastScan={code:null,time:0};
+  const video = document.getElementById("video");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  async function startScanning(){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+      video.srcObject = stream;
+      await video.play();
+      scanning = true;
+      document.getElementById("startBtn").style.display="none";
+      document.getElementById("stopBtn").style.display="inline-block";
+      document.getElementById("scanStatus").textContent = "Scanning… hold the QR card steady in the frame.";
+      requestAnimationFrame(scanLoop);
+    }catch(e){
+      document.getElementById("scanStatus").textContent = "Couldn't access the camera. You can enter the code manually instead.";
+    }
+  }
+  function stopScanning(){
+    scanning=false;
+    if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+    document.getElementById("startBtn").style.display="inline-block";
+    document.getElementById("stopBtn").style.display="none";
+  }
+  function scanLoop(){
+    if(!scanning) return;
+    if(video.readyState===video.HAVE_ENOUGH_DATA){
+      canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+      ctx.drawImage(video,0,0,canvas.width,canvas.height);
+      const imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+      const result = jsQR(imgData.data, imgData.width, imgData.height);
+      if(result && result.data){
+        const now=Date.now();
+        if(!(result.data===lastScan.code && now-lastScan.time<4000)){
+          lastScan={code:result.data, time:now};
+          handleScan(result.data.trim());
+        }
+      }
+    }
+    requestAnimationFrame(scanLoop);
+  }
+
+  document.getElementById("startBtn").addEventListener("click", startScanning);
+  document.getElementById("stopBtn").addEventListener("click", stopScanning);
+  document.getElementById("manualBtn").addEventListener("click", ()=>{
+    document.getElementById("manualModal").classList.add("show");
+  });
+  document.getElementById("manualCancel").addEventListener("click", ()=>{
+    document.getElementById("manualModal").classList.remove("show");
+  });
+  document.getElementById("manualSubmit").addEventListener("click", ()=>{
+    const code = document.getElementById("manualCode").value.trim();
+    document.getElementById("manualModal").classList.remove("show");
+    document.getElementById("manualCode").value="";
+    if(code) handleScan(code);
+  });
+
+  async function handleScan(code){
+    const person = roster.find(r=>r.code===code);
+    if(!person){
+      document.getElementById("unknownModal").classList.add("show");
+      document.getElementById("unknownModal").dataset.pendingCode = code;
+      return;
+    }
+    await checkIn(person);
+  }
+
+  document.getElementById("unknownCancel").addEventListener("click", ()=>{
+    document.getElementById("unknownModal").classList.remove("show");
+  });
+  document.getElementById("unknownSubmit").addEventListener("click", async ()=>{
+    const name = document.getElementById("unknownName").value.trim();
+    const group = document.getElementById("unknownGroup").value.trim();
+    const code = document.getElementById("unknownModal").dataset.pendingCode;
+    if(!name){ return; }
+    const person = {code, name, group, joined: todayISO()};
+    roster.push(person);
+    await saveJSON("roster", roster);
+    document.getElementById("unknownModal").classList.remove("show");
+    document.getElementById("unknownName").value="";
+    document.getElementById("unknownGroup").value="";
+    await checkIn(person, true);
+  });
+
+  async function checkIn(person, isNew){
+    const today = todayISO();
+    const already = log.find(e=>e.code===person.code && e.date===today);
+    if(already){
+      showWelcome(person, "Already checked in today", null);
+      return;
+    }
+    const now = new Date();
+    log.push({code:person.code, name:person.name, date:today, time:now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})});
+    await saveJSON("log", log);
+    const streak = computeStreak(person.code);
+    showWelcome(person, isNew ? "First check-in — welcome!" : streakLine(streak), streak);
+  }
+
+  function streakLine(streak){
+    if(streak<=1) return "";
+    return streak+" sessions in a row";
+  }
+
+  function computeStreak(code){
+    const sessionDates = [...new Set(log.map(e=>e.date))].sort().reverse();
+    let streak=0;
+    for(const d of sessionDates){
+      if(log.some(e=>e.code===code && e.date===d)) streak++;
+      else break;
+    }
+    return streak;
+  }
+
+  function showWelcome(person, sub, streak){
+    document.getElementById("welcomeInitial").textContent = person.name.charAt(0).toUpperCase();
+    document.getElementById("welcomeName").textContent = person.name;
+    document.getElementById("welcomeStreak").textContent = streak && streak>1 ? "🔥 "+streakLine(streak) : "";
+    document.getElementById("welcomeSub").textContent = sub && streak && streak<=1 ? sub : (streak?"" : sub);
+    const overlay = document.getElementById("welcomeOverlay");
+    overlay.classList.add("show");
+    setTimeout(()=>overlay.classList.remove("show"), 2200);
+  }
+
+  // ---------- Roster ----------
+  document.getElementById("addSubmitBtn").addEventListener("click", async ()=>{
+    const nameInput = document.getElementById("addName");
+    const name = nameInput.value.trim();
+    const group = document.getElementById("addGroup").value.trim();
+    const errEl = document.getElementById("addNameError");
+    if(!name){
+      errEl.style.display="block";
+      nameInput.focus();
+      return;
+    }
+    errEl.style.display="none";
+    const person = {code: genCode(), name, group, joined: todayISO()};
+    roster.push(person);
+    await saveJSON("roster", roster);
+    nameInput.value="";
+    document.getElementById("addGroup").value="";
+    renderRoster();
+    showToast(name+" added to the roster");
+  });
+
+  function showToast(msg){
+    let t = document.getElementById("appToast");
+    if(!t){
+      t = document.createElement("div");
+      t.id="appToast";
+      t.style.cssText="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--teal);color:#fff;padding:10px 18px;border-radius:100px;font-size:0.85rem;font-weight:600;z-index:80;box-shadow:0 4px 16px rgba(0,0,0,0.3);";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display="block";
+    clearTimeout(t._hideTimer);
+    t._hideTimer = setTimeout(()=>{ t.style.display="none"; }, 2200);
+  }
+
+  document.getElementById("rosterSearch").addEventListener("input", renderRoster);
+
+  function renderRoster(){
+    const q = document.getElementById("rosterSearch").value.toLowerCase();
+    const wrap = document.getElementById("rosterTableWrap");
+    const filtered = roster.filter(r=>r.name.toLowerCase().includes(q));
+    if(filtered.length===0){
+      wrap.innerHTML = '<div class="empty">No one here yet. Add a youth above to get started.</div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Name</th><th>Group</th><th>Code</th><th></th></tr></thead><tbody>';
+    filtered.forEach(r=>{
+      html += `<tr><td>${escapeHtml(r.name)}</td><td><span class="pill">${escapeHtml(r.group||'—')}</span></td><td style="font-family:monospace;font-size:0.8rem;color:var(--muted);">${r.code}</td><td class="row-actions"><button data-code="${r.code}">Remove</button></td></tr>`;
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+    wrap.querySelectorAll("button[data-code]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        if(!confirm("Remove this person from the roster? This won't delete their past attendance history.")) return;
+        roster = roster.filter(r=>r.code!==btn.dataset.code);
+        await saveJSON("roster", roster);
+        renderRoster();
+      });
+    });
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- Print ID cards ----------
+  document.getElementById("printCardsBtn").addEventListener("click", ()=>{
+    const area = document.getElementById("printArea");
+    area.innerHTML = "";
+    roster.forEach(r=>{
+      const card = document.createElement("div");
+      card.className = "qr-card";
+      const qrDiv = document.createElement("div");
+      card.appendChild(qrDiv);
+      const nameDiv = document.createElement("div");
+      nameDiv.className="name"; nameDiv.textContent=r.name;
+      card.appendChild(nameDiv);
+      const codeDiv = document.createElement("div");
+      codeDiv.className="code"; codeDiv.textContent=r.code;
+      card.appendChild(codeDiv);
+      area.appendChild(card);
+      new QRCode(qrDiv, {text:r.code, width:110, height:110, colorDark:"#000000", colorLight:"#ffffff"});
+    });
+    setTimeout(()=>window.print(), 300);
+  });
+
+  // ---------- Dashboard ----------
+  let chartInstance=null;
+  function renderDashboard(){
+    const today = todayISO();
+    const todayCount = log.filter(e=>e.date===today).length;
+    const sessionDates = [...new Set(log.map(e=>e.date))].sort();
+    const last8 = sessionDates.slice(-8);
+    const avg = last8.length ? Math.round(last8.reduce((s,d)=>s+log.filter(e=>e.date===d).length,0)/last8.length) : 0;
+    const firstTimersToday = log.filter(e=>e.date===today).filter(e=>{
+      const person = roster.find(r=>r.code===e.code);
+      return person && person.joined===today;
+    }).length;
+
+    document.getElementById("statsRow").innerHTML = `
+      <div class="stat"><div class="num">${todayCount}</div><div class="lbl">Checked in today</div></div>
+      <div class="stat"><div class="num">${roster.length}</div><div class="lbl">On roster</div></div>
+      <div class="stat"><div class="num">${avg}</div><div class="lbl">Avg / session (last 8)</div></div>
+      <div class="stat"><div class="num">${firstTimersToday}</div><div class="lbl">First-timers today</div></div>
+    `;
+
+    const ctx2 = document.getElementById("trendChart").getContext("2d");
+    const labels = last8.map(d=>{ const [y,m,day]=d.split("-"); return day+"/"+m; });
+    const data = last8.map(d=>log.filter(e=>e.date===d).length);
+    if(chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx2, {
+      type:'bar',
+      data:{ labels, datasets:[{ label:'Attendance', data, backgroundColor:'#2c8c8c', borderRadius:6, maxBarThickness:36 }]},
+      options:{
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{ticks:{color:'#a99bc0'}, grid:{display:false}},
+          y:{ticks:{color:'#a99bc0'}, grid:{color:'rgba(255,255,255,0.05)'}, beginAtZero:true}
+        }
+      }
+    });
+
+    const recent3 = sessionDates.slice(-3);
+    const absentees = roster.filter(r=>{
+      if(recent3.length===0) return false;
+      if(!recent3.some(d=>d>=r.joined)) return false;
+      return recent3.every(d=> !log.some(e=>e.code===r.code && e.date===d));
+    });
+    const absWrap = document.getElementById("absenteeList");
+    if(recent3.length<3){
+      absWrap.innerHTML = '<div class="empty">Needs at least 3 recorded sessions to flag anyone.</div>';
+    } else if(absentees.length===0){
+      absWrap.innerHTML = '<div class="empty">Nobody\'s missed the last 3 sessions. 🎉</div>';
+    } else {
+      absWrap.innerHTML = absentees.map(r=>`<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">${escapeHtml(r.name)} <span class="pill">${escapeHtml(r.group||'—')}</span></div>`).join('');
+    }
+  }
+  document.getElementById("refreshDashBtn").addEventListener("click", renderDashboard);
+
+  // ---------- Export ----------
+  function downloadCSV(filename, rows){
+    const csv = rows.map(row=>row.map(cell=>{
+      const s = String(cell??"");
+      return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+    }).join(",")).join("\n");
+    const blob = new Blob([csv], {type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  document.getElementById("exportLogBtn").addEventListener("click", ()=>{
+    const rows = [["Date","Time","Name","Code"]].concat(log.map(e=>[e.date,e.time,e.name,e.code]));
+    downloadCSV("yaya-attendance-log.csv", rows);
+  });
+  document.getElementById("exportRosterBtn").addEventListener("click", ()=>{
+    const rows = [["Name","Group","Code","Joined"]].concat(roster.map(r=>[r.name,r.group,r.code,r.joined]));
+    downloadCSV("yaya-roster.csv", rows);
+  });
+
+  // ---------- Seed data (from RCCG LWD YAYA ATTENDANCE > Youth Register) ----------
+  const SEED_ROSTER = [
+    ["Abiola Mark","13-15"],["Adedayo Niniola","13-15"],["Adedayo Simi","16-18"],
+    ["Adedokun Marvelous","13-15"],["Adedokun Mercy","13-15"],["Akerele Fiyinfoluwa","13-15"],
+    ["Akerele Iseoluwa","16-18"],["Akpe Favour","13-15"],["Akpe Victor","16-18"],
+    ["Alansanya Eunice","13-15"],["Ali Daniel","16-18"],["Taiwo Anjolaoluwa","13-15"],
+    ["Anjorin Samuel","16-18"],["Anjorin Seyi","13-15"],["Duntoye Demliade","13-15"],
+    ["Efubibe Chiamaka",""],["Egube Keshawn","13-15"],["Elumoye Nifemi","13-15"],
+    ["Emoruwa Blessing","13-15"],["Emoruwa David",""],["Eqube Rosh",""],
+    ["Erijoh Majiri",""],["Erijoh Oghenemaro",""],["Fasomoyin Ayobami",""],
+    ["Koduah Karys",""],["Mafukize Ryan",""],["Odunowo Ayoyemi",""],
+    ["Ogunemi Joseph",""],["Okpalaugo Bright",""],["Olaoye Grace",""],
+    ["Olaoye Michelle",""],["Olasupo Peniel",""],["Olibe Kamsi",""],
+    ["Olibe Kenechuckwu",""],["Olibe Michelle",""],["Onwughai Emmanuel",""],
+    ["Oqunremi Isaac",""],["Oyefusi Victoria",""],["Tolorunji Hopewell",""],
+    ["Udo Mirace",""],["Ozumba Charity",""],["Ayano Damilola",""],
+    ["Cornelius",""],["Adang Victor",""],["Adang Valour",""],
+    ["Abiola Abiodun",""],["Ayodele Temi",""],["Akpe Goodness",""],
+    ["Erijoh Oghenemega",""],["Onwughai Dorcas",""],["Oluko Ayomiposi",""],
+    ["Olasupo David",""],["Taiwo Anu",""],["Ozumba Ella",""],
+    ["Udo Splendour",""],["Ezebuiro Shirel",""],["Ezebuiro Samuel",""],
+    ["Ezebuiro Treasure",""],["Ezebuiro Daniel",""],["Hassan Peter",""],
+    ["Tolorunji Comewell",""]
+  ];
+
+  document.getElementById("importSeedBtn").addEventListener("click", async ()=>{
+    const existingNames = new Set(roster.map(r=>r.name.trim().toLowerCase()));
+    const toAdd = SEED_ROSTER.filter(([name])=>!existingNames.has(name.trim().toLowerCase()));
+    if(toAdd.length===0){
+      showToast("Everyone from the Youth Register is already on the roster");
+      return;
+    }
+    toAdd.forEach(([name, group])=>{
+      roster.push({code: genCode(), name, group, joined: todayISO()});
+    });
+    await saveJSON("roster", roster);
+    renderRoster();
+    showToast("Imported "+toAdd.length+" name"+(toAdd.length===1?"":"s")+" from the Youth Register");
+  });
+
+  // ---------- Init ----------
+  setInterval(()=>{
+    if(Object.keys(pendingSaves).length>0) retryPendingSaves();
+  }, 15000);
+  (async function init(){
+    roster = await loadJSON("roster", []);
+    log = await loadJSON("log", []);
+    if(roster.length===0 && SEED_ROSTER.length>0){
+      roster = SEED_ROSTER.map(([name, group])=>({
+        code: genCode(), name, group, joined: todayISO()
+      }));
+      await saveJSON("roster", roster);
+      showToast("Loaded "+roster.length+" names from the Youth Register");
+    }
+    renderRoster();
+  })();
+
+})();
+</script>
+</body>
+</html>
